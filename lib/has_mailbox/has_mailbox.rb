@@ -61,14 +61,30 @@ module HasMailbox
                            'group_concat'
                          end
         query =   <<-QUERY
-                  select subject, sender_id, #{sql_array_function}(id) from messages where 
+                  select subject, sender_id, max(created_at), #{sql_array_function}(id) from messages where 
                   id in (#{ids})
                   group by subject, sender_id
+                  order by max(created_at) DESC
                   QUERY
         begin
-        ActiveRecord::Base.connection.execute(query)
+        result = ActiveRecord::Base.connection.execute(query).to_a
         rescue Exception => e
           "Only PostgreSQL and MySQL are currently supported. Your query returned the following error #{e.message}"
+        end
+        if result
+          result.collect do |row|
+            {
+              :subject => row['subject'],
+              :sender_id => row['sender_id'],
+              :last_message_at => row['max'],
+              :message_ids => case sql_array_function
+                              when 'array_agg'
+                                row[sql_array_function].gsub(/\{|\}/,'').split(',').collect{|n| n.to_i} rescue []
+                              when 'group_concat'
+                                row[sql_array_function].split(',').collect{|n| n.to_i} rescue []
+                              end
+            }
+          end
         end
 
       end
