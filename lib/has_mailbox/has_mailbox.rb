@@ -52,6 +52,27 @@ module HasMailbox
         self.received_messages.where(:deleted => false)
       end
 
+      def conversations_in(mailbox)
+        ids = self.send("#{mailbox}").map(&:id).join(',')
+        sql_array_function = case ActiveRecord::Base.connection.adapter_name
+                         when 'PostgreSQL'
+                           'array_agg'
+                         when 'MySQL'
+                           'group_concat'
+                         end
+        query =   <<-QUERY
+                  select subject, sender_id, #{sql_array_function}(id) from messages where 
+                  id in (#{ids})
+                  group by subject, sender_id
+                  QUERY
+        begin
+        ActiveRecord::Base.connection.execute(query)
+        rescue Exception => e
+          "Only PostgreSQL and MySQL are currently supported. Your query returned the following error #{e.message}"
+        end
+
+      end
+
       # retrieve all messages that being deleted (still in the trash but not yet destroyed)
       def trash
         self.received_messages.where(:deleted => true)

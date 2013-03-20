@@ -15,6 +15,7 @@ module HasMailbox
         def index
           @mailbox = params[:mailbox].blank? ? "inbox" : params[:mailbox]
           @messages = #{mapping[:user_object_name]}.send(@mailbox).paginate(:page => params[:page], :per_page => 10)
+          @conversations = #{mapping[:user_object_name]}.conversations_in(#{@mailbox}).paginate(:page => params[:page], :per_page => 10)
         if @mailbox == "inbox"
             @options = ["Read","Unread","Delete"]
           elsif @mailbox == "outbox"
@@ -27,6 +28,7 @@ module HasMailbox
         def show
           unless params[:mailbox].blank?
             @message = #{mapping[:user_object_name]}.send(params[:mailbox]).find(params[:id])
+            @thread = @message.thread
             message_from = @message.from.#{mapping[:user_display_attribute]}
             message_created_at = @message.created_at.strftime('%A, %B %d, %Y at %I:%M %p')
           unless params[:mailbox] == "outbox"
