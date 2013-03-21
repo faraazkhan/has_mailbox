@@ -73,16 +73,19 @@ module HasMailbox
         end
         if result
           result.collect do |row|
+            messages = case sql_array_function
+                        when 'array_agg'
+                          row[sql_array_function].gsub(/\{|\}/,'').split(',')
+                        when 'group_concat'
+                          row[sql_array_function].split(',')
+                        end
+
             {
               :subject => row['subject'],
               :sender_id => row['sender_id'],
               :last_message_at => row['max'],
-              :message_ids => case sql_array_function
-                              when 'array_agg'
-                                row[sql_array_function].gsub(/\{|\}/,'').split(',').collect{|n| n.to_i} rescue []
-                              when 'group_concat'
-                                row[sql_array_function].split(',').collect{|n| n.to_i} rescue []
-                              end
+              :last_message_id => messages.try(:last).try(:to_i), 
+              :message_ids => messages.collect{|id| id.to_i} 
             }
           end
         end
